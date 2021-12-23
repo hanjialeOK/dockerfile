@@ -11,7 +11,7 @@ copy your .ssh/
 ```c
 cd dockerbuild
 mkdir .ssh/
-cp -r ~/.ssh/id_rsa ~/.ssh/id_pub.pub  .ssh/
+cp ~/.ssh/id_rsa ~/.ssh/id_pub.pub .ssh/
 ```
 
 clone zsh

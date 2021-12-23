@@ -10,7 +10,7 @@ ENV LANG C.UTF-8
 
 RUN apt update
 
-# openssh conf
+# install openssh
 COPY .ssh/ /root/.ssh/
 
 RUN apt install -y openssh-server --no-install-recommends && \
@@ -27,7 +27,7 @@ RUN apt install -y openssh-server --no-install-recommends && \
 EXPOSE 22
 EXPOSE 80
 
-# zsh conf
+# install zsh
 COPY .oh-my-zsh/ /root/.oh-my-zsh/
 
 RUN apt install -y zsh --no-install-recommends && \
@@ -39,18 +39,19 @@ RUN apt install -y zsh --no-install-recommends && \
     chsh -s $(which zsh) && \
     apt clean
 
-# python conf
-RUN apt install -y \
-        software-properties-common \
-        wget \
-        --no-install-recommends && \
+# install python3.7
+RUN apt update && \
+    apt install -y software-properties-common --no-install-recommends && \
     add-apt-repository -y ppa:deadsnakes/ppa && \
     apt install -y \
         python3.7 \
         python3.7-distutils \
         python3.7-dev \
-        --no-install-recommends && \
-    # install virtualenv & virtualenvwrapper
+        --no-install-recommends
+
+# install virtualenv & virtualenvwrapper`
+RUN apt update && \
+    apt install -y wget --no-install-recommends && \
     wget https://bootstrap.pypa.io/get-pip.py && \
     python3.7 get-pip.py && \
     pip install virtualenv virtualenvwrapper && \
@@ -61,14 +62,23 @@ RUN apt install -y \
     echo "export VIRTUALENVWRAPPER_VIRTUALENV=`which virtualenv`" >> /root/.zshrc && \
     echo "export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3.7" >> /root/.zshrc && \
     echo "source `which virtualenvwrapper.sh`" >> /root/.zshrc && \
+    source `which virtualenvwrapper.sh` && \
+    mkvirtualenv py37 && \
+    deactivate && \
     rm get-pip.py && \
     apt clean
 
-# gym conf
-COPY ROMS/ /root/ROMS/
-
-RUN source `which virtualenvwrapper.sh` && \
-    mkvirtualenv py37 && \
+# install atari
+RUN apt update && \
+    apt install -y \
+        wget \
+        unrar \
+        unzip \
+        --no-install-recommends && \
+    wget http://www.atarimania.com/roms/Roms.rar && \
+    unrar e Roms.rar && \
+    unzip ROMS.zip && \
+    source `which virtualenvwrapper.sh` && \
     workon py37 && \
     pip install \
         opencv-python \
@@ -83,15 +93,46 @@ RUN source `which virtualenvwrapper.sh` && \
         libgl1-mesa-glx \
         libglib2.0-dev \
         --no-install-recommends && \
+    rm *.zip *.rar && \
     rm -rf ROMS/ && \
     apt clean
 
-# necessary 
-RUN apt install -y \
+# install mujoco
+RUN apt update && \
+    apt install -y wget --no-install-recommends && \
+    wget https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz && \
+    tar zxf mujoco210-linux-x86_64.tar.gz && \
+    mkdir /root/.mujoco && \
+    mv mujoco210/ /root/.mujoco/ && \
+    echo -e "\n# mujoco" >> /root/.zshrc && \
+    echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/root/.mujoco/mujoco210/bin" \
+        >> /root/.zshrc && \
+    source `which virtualenvwrapper.sh` && \
+    workon py37 && \
+    pip install mujoco-py && \
+    deactivate && \
+    apt install -y \
+        libosmesa6-dev \
+        libgl1-mesa-glx \
+        libglfw3 \
+        patchelf \
+        --no-install-recommends && \
+    ln -s /usr/lib/x86_64-linux-gnu/libGL.so.1 /usr/lib/x86_64-linux-gnu/libGL.so && \
+    workon py37 && \
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/root/.mujoco/mujoco210/bin && \
+    python -c 'import mujoco_py' && \
+    deactivate && \
+    rm mujoco210-linux-x86_64.tar.gz && \
+    apt clean
+
+# install other tools 
+RUN apt update && \
+    apt install -y \
         vim \
         tmux \
         git \
         net-tools \
+        unzip \
         --no-install-recommends && \
     apt clean
 
