@@ -6,7 +6,7 @@ SHELL ["/bin/bash", "-c"]
 
 WORKDIR /root/
 
-ENV LANG C.UTF-8
+ENV LC_ALL C.UTF-8
 
 # install openssh
 COPY .ssh/ /root/.ssh/
@@ -35,7 +35,7 @@ RUN apt update && \
     sed -i 's/plugins=(git)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/g' \
         /root/.zshrc && \
     echo -e "\n# locale" >> /root/.zshrc && \
-    echo "export LANG=C.UTF-8" >> /root/.zshrc && \
+    echo "export LC_ALL=C.UTF-8" >> /root/.zshrc && \
     chsh -s $(which zsh) && \
     rm -rf /var/lib/apt/lists/*
 
@@ -135,6 +135,9 @@ RUN apt update && \
         git \
         net-tools \
         unzip \
+        curl \
+        iputils-ping \
+        psmisc \
         --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
