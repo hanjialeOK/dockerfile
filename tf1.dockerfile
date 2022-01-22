@@ -6,11 +6,12 @@ SHELL ["/bin/bash", "-c"]
 
 WORKDIR /root/
 
+ENV DEBIAN_FRONTEND noninteractive
 ENV LC_ALL C.UTF-8
+ENV LANG C.UTF-8
 
-# install openssh
+# Install openssh
 COPY .ssh/ /root/.ssh/
-
 RUN apt update && \
     apt install -y openssh-server --no-install-recommends && \
     cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys && \
@@ -22,24 +23,23 @@ RUN apt update && \
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin prohibit-password/g' \
         /etc/ssh/sshd_config && \
     rm -rf /var/lib/apt/lists/*
-
 EXPOSE 22
 EXPOSE 80
 
-# install zsh
+# Install zsh
 COPY .oh-my-zsh/ /root/.oh-my-zsh/
-
 RUN apt update && \
     apt install -y zsh --no-install-recommends && \
     cp /root/.oh-my-zsh/templates/zshrc.zsh-template /root/.zshrc && \
     sed -i 's/plugins=(git)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/g' \
         /root/.zshrc && \
-    echo -e "\n# locale" >> /root/.zshrc && \
-    echo "export LC_ALL=C.UTF-8" >> /root/.zshrc && \
+    echo -e "\n# locale" | tee -a /root/.zshrc /root/.bashrc && \
+    echo "export LC_ALL=C.UTF-8" | tee -a /root/.zshrc /root/.bashrc && \
+    echo "export LANG=C.UTF-8" | tee -a /root/.zshrc /root/.bashrc && \
     chsh -s $(which zsh) && \
     rm -rf /var/lib/apt/lists/*
 
-# install python3.7
+# Install python3.7
 RUN apt update && \
     apt install -y software-properties-common --no-install-recommends && \
     add-apt-repository -y ppa:deadsnakes/ppa && \
@@ -47,29 +47,46 @@ RUN apt update && \
         python3.7 \
         python3.7-distutils \
         python3.7-dev \
+        # Interactive when configuring tzdata, default time zone: 'Etc/UTC'
+        python3.7-tk \
         --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
-# install virtualenv & virtualenvwrapper`
+# Install virtualenv & virtualenvwrapper`
 RUN apt update && \
     apt install -y wget --no-install-recommends && \
     wget https://bootstrap.pypa.io/get-pip.py && \
     python3.7 get-pip.py && \
     pip install virtualenv virtualenvwrapper && \
     sed -i 's/which python/which python3.7/g' `which virtualenvwrapper.sh` && \
-    # virtualenvwrapper >> zshrc
-    echo -e "\n# virtualenvwrapper" >> /root/.zshrc && \
-    echo "export WORKON_HOME=/root/.virtualenvs" >> /root/.zshrc && \
-    echo "export VIRTUALENVWRAPPER_VIRTUALENV=`which virtualenv`" >> /root/.zshrc && \
-    echo "export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3.7" >> /root/.zshrc && \
-    echo "source `which virtualenvwrapper.sh`" >> /root/.zshrc && \
+    echo -e "\n# virtualenvwrapper" | tee -a /root/.zshrc /root/.bashrc && \
+    echo "export WORKON_HOME=/root/.virtualenvs" | tee -a /root/.zshrc /root/.bashrc && \
+    echo "export VIRTUALENVWRAPPER_VIRTUALENV=`which virtualenv`" | tee -a /root/.zshrc /root/.bashrc && \
+    echo "export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3.7" | tee -a /root/.zshrc /root/.bashrc && \
+    echo "source `which virtualenvwrapper.sh`" | tee -a /root/.zshrc /root/.bashrc && \
     source `which virtualenvwrapper.sh` && \
-    mkvirtualenv py37 && \
-    deactivate && \
     rm get-pip.py && \
     rm -rf /var/lib/apt/lists/*
 
-# install atari
+# Create py37 and install tensorflow==1.15
+RUN source `which virtualenvwrapper.sh` && \
+    mkvirtualenv py37 && \
+    workon py37 && \
+    pip install \
+        ipython \
+        opencv-python \
+        matplotlib \
+        tensorflow-gpu==1.15 && \
+    deactivate && \
+    apt update && \
+    # cv2 required
+    apt install -y \
+        libgl1-mesa-glx \
+        libglib2.0-dev \
+        --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install atari
 RUN apt update && \
     apt install -y \
         wget \
@@ -82,23 +99,15 @@ RUN apt update && \
     source `which virtualenvwrapper.sh` && \
     workon py37 && \
     pip install \
-        opencv-python \
-        matplotlib \
-        ipython \
         gym \
         ale-py && \
     ale-import-roms ROMS/ && \
     deactivate && \
-    # fix for cv2
-    apt install -y \
-        libgl1-mesa-glx \
-        libglib2.0-dev \
-        --no-install-recommends && \
     rm *.zip *.rar && \
     rm -rf ROMS/ && \
     rm -rf /var/lib/apt/lists/*
 
-# install mujoco
+# Install mujoco
 COPY mujoco210-linux-x86_64.tar.gz /root/mujoco210-linux-x86_64.tar.gz
 RUN apt update && \
     apt install -y wget --no-install-recommends && \
@@ -106,13 +115,12 @@ RUN apt update && \
     tar zxf mujoco210-linux-x86_64.tar.gz && \
     mkdir /root/.mujoco && \
     mv mujoco210/ /root/.mujoco/ && \
-    echo -e "\n# mujoco" >> /root/.zshrc && \
-    echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/root/.mujoco/mujoco210/bin" \
-        >> /root/.zshrc && \
+    echo -e "\n# mujoco" | tee -a /root/.zshrc /root/.bashrc && \
+    echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:/root/.mujoco/mujoco210/bin" \
+        | tee -a /root/.zshrc /root/.bashrc && \
     source `which virtualenvwrapper.sh` && \
     workon py37 && \
     pip install mujoco-py && \
-    deactivate && \
     apt install -y \
         libosmesa6-dev \
         libgl1-mesa-glx \
@@ -120,14 +128,13 @@ RUN apt update && \
         patchelf \
         --no-install-recommends && \
     ln -s /usr/lib/x86_64-linux-gnu/libGL.so.1 /usr/lib/x86_64-linux-gnu/libGL.so && \
-    workon py37 && \
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/root/.mujoco/mujoco210/bin && \
     python -c 'import mujoco_py' && \
     deactivate && \
     rm mujoco210-linux-x86_64.tar.gz && \
     rm -rf /var/lib/apt/lists/*
 
-# install other tools 
+# Install necessary tools 
 RUN apt update && \
     apt install -y \
         vim \
@@ -135,36 +142,31 @@ RUN apt update && \
         git \
         net-tools \
         unzip \
-        curl \
+        cmake \
+        gcc \
+        g++ \
         iputils-ping \
+        # fuser -v /dev/nvidia0
         psmisc \
         --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
-# install requirements for framework
-RUN apt update && \
-    apt install -y \
-        git \
-        cmake \
-        g++ \
-        --no-install-recommends && \
-    source `which virtualenvwrapper.sh` && \
+# Requirements for framework
+RUN source `which virtualenvwrapper.sh` && \
     workon py37 && \
     pip install \
-        tensorflow-gpu==1.15 \
         influxdb \
         psutil \
         pyzmq \
         pyarrow \
         scipy && \
-    deactivate && \
-    rm -rf /var/lib/apt/lists/*
+    deactivate
 
-# install horovod
-# make sure that tensorflow has been installed!
-RUN echo -e "\n# horovod" >> /root/.zshrc && \
-    echo "export HOROVOD_GPU_OPERATIONS=NCCL" >> /root/.zshrc && \
-    echo "export HOROVOD_WITH_TENSORFLOW=1" >> /root/.zshrc && \
+# Install horovod
+# Make sure that tensorflow has been installed!
+RUN echo -e "\n# horovod" | tee -a /root/.zshrc /root/.bashrc && \
+    echo "export HOROVOD_GPU_OPERATIONS=NCCL" | tee -a /root/.zshrc /root/.bashrc && \
+    echo "export HOROVOD_WITH_TENSORFLOW=1" | tee -a /root/.zshrc /root/.bashrc && \
     export HOROVOD_GPU_OPERATIONS=NCCL && \
     export HOROVOD_WITH_TENSORFLOW=1 && \
     source `which virtualenvwrapper.sh` && \
