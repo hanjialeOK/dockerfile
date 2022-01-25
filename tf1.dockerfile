@@ -125,9 +125,10 @@ RUN apt update && \
         libosmesa6-dev \
         libgl1-mesa-glx \
         libglfw3 \
+        libglew-dev \
         patchelf \
         --no-install-recommends && \
-    ln -s /usr/lib/x86_64-linux-gnu/libGL.so.1 /usr/lib/x86_64-linux-gnu/libGL.so && \
+    # ln -s /usr/lib/x86_64-linux-gnu/libGL.so.1 /usr/lib/x86_64-linux-gnu/libGL.so && \
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/root/.mujoco/mujoco210/bin && \
     python -c 'import mujoco_py' && \
     deactivate && \
