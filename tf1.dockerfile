@@ -76,6 +76,8 @@ RUN source `which virtualenvwrapper.sh` && \
         ipython \
         opencv-python \
         matplotlib \
+        seaborn==0.8.1 \
+        pandas \
         tensorflow-gpu==1.15 && \
     deactivate && \
     apt update && \
