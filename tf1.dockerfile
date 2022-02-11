@@ -78,7 +78,8 @@ RUN source `which virtualenvwrapper.sh` && \
         matplotlib \
         seaborn==0.8.1 \
         pandas \
-        tensorflow-gpu==1.15 && \
+        tensorflow-gpu==1.15 \
+        h5py==2.10.0 && \
     deactivate && \
     apt update && \
     # cv2 required
