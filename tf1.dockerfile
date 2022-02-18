@@ -121,7 +121,8 @@ RUN apt update && \
     mkdir /root/.mujoco && \
     mv mujoco210/ /root/.mujoco/ && \
     echo -e "\n# mujoco" | tee -a /root/.zshrc /root/.bashrc && \
-    echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:/root/.mujoco/mujoco210/bin" \
+    # Fix duplicated values when source ~/zshrc.
+    echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/root/.mujoco/mujoco210/bin" \
         | tee -a /root/.zshrc /root/.bashrc && \
     source `which virtualenvwrapper.sh` && \
     workon py37 && \
