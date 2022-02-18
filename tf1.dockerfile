@@ -48,6 +48,7 @@ RUN apt update && \
         python3.7-distutils \
         python3.7-dev \
         # Interactive when configuring tzdata, default time zone: 'Etc/UTC'
+        # Fix for using color in matplotlib
         python3.7-tk \
         --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
@@ -79,6 +80,7 @@ RUN source `which virtualenvwrapper.sh` && \
         seaborn==0.8.1 \
         pandas \
         tensorflow-gpu==1.15 \
+        # Fix load_weights(xx.h5)
         h5py==2.10.0 && \
     deactivate && \
     apt update && \
@@ -138,7 +140,7 @@ RUN apt update && \
     rm mujoco210-linux-x86_64.tar.gz && \
     rm -rf /var/lib/apt/lists/*
 
-# Install necessary tools 
+# Install necessary tools
 RUN apt update && \
     apt install -y \
         vim \
@@ -149,6 +151,8 @@ RUN apt update && \
         cmake \
         gcc \
         g++ \
+        # Fix for `omz update`
+        libssl-dev \
         iputils-ping \
         # fuser -v /dev/nvidia0
         psmisc \
