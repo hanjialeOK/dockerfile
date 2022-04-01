@@ -77,7 +77,7 @@ RUN source `which virtualenvwrapper.sh` && \
         ipython \
         opencv-python \
         matplotlib \
-        seaborn==0.8.1 \
+        seaborn \
         pandas \
         tensorflow-gpu==1.15.5 \
         tensorflow-probability==0.8.0 \
