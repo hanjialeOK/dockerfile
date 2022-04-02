@@ -79,6 +79,7 @@ RUN source `which virtualenvwrapper.sh` && \
         matplotlib \
         seaborn \
         pandas \
+        autopep8 \
         tensorflow-gpu==1.15.5 \
         tensorflow-probability==0.8.0 \
         # Fix load_weights(xx.h5)
