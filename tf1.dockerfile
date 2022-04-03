@@ -101,8 +101,7 @@ RUN apt update && \
         unzip \
         --no-install-recommends && \
     wget http://www.atarimania.com/roms/Roms.rar && \
-    unrar e Roms.rar && \
-    unzip ROMS.zip && \
+    unrar x Roms.rar && \
     source `which virtualenvwrapper.sh` && \
     workon py37 && \
     pip install \
@@ -110,8 +109,8 @@ RUN apt update && \
         ale-py && \
     ale-import-roms ROMS/ && \
     deactivate && \
-    rm *.zip *.rar && \
-    rm -rf ROMS/ && \
+    rm Roms.rar && \
+    rm -rf ROMS/ 'HC ROMS' && \
     rm -rf /var/lib/apt/lists/*
 
 # Install mujoco
