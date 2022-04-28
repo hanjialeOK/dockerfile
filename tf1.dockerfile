@@ -70,27 +70,31 @@ RUN apt update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create py37 and install tensorflow==1.15
-RUN source `which virtualenvwrapper.sh` && \
+RUN apt update && \
+    apt install -y \
+        # CV2 required
+        libgl1-mesa-glx \
+        libglib2.0-dev \
+        # Mpi4py required
+        libopenmpi-dev \
+        --no-install-recommends && \
+    source `which virtualenvwrapper.sh` && \
     mkvirtualenv py37 && \
     workon py37 && \
     pip install \
         ipython \
         opencv-python \
         matplotlib \
-        seaborn \
         pandas \
         autopep8 \
+        mpi4py \
         tensorflow-gpu==1.15.5 \
         tensorflow-probability==0.8.0 \
+        # Fix sns.tsplot
+        seaborn==0.8.1 \
         # Fix load_weights(xx.h5)
         h5py==2.10.0 && \
     deactivate && \
-    apt update && \
-    # cv2 required
-    apt install -y \
-        libgl1-mesa-glx \
-        libglib2.0-dev \
-        --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
 # Install atari
@@ -153,6 +157,8 @@ RUN apt update && \
         cmake \
         gcc \
         g++ \
+        # Fix for wlt.sh
+        curl \
         # Fix for `omz update`
         libssl-dev \
         iputils-ping \
