@@ -40,9 +40,6 @@ RUN apt update && \
     cp /root/.oh-my-zsh/templates/zshrc.zsh-template /root/.zshrc && \
     sed -i 's/plugins=(git)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/g' \
         /root/.zshrc && \
-    echo -e "\n# locale" | tee -a /root/.zshrc /root/.bashrc && \
-    echo "export LC_ALL=C.UTF-8" | tee -a /root/.zshrc /root/.bashrc && \
-    echo "export LANG=C.UTF-8" | tee -a /root/.zshrc /root/.bashrc && \
     chsh -s $(which zsh) && \
     rm -rf /var/lib/apt/lists/*
 
@@ -60,19 +57,16 @@ RUN apt update && \
         --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
-# Install virtualenv & virtualenvwrapper`
+# Install virtualenv & virtualenvwrapper
+ENV WORKON_HOME /root/.virtualenvs
+ENV VIRTUALENVWRAPPER_VIRTUALENV /usr/local/bin/virtualenv
+ENV VIRTUALENVWRAPPER_PYTHON /usr/bin/python3.7
 RUN apt update && \
     apt install -y wget --no-install-recommends && \
     wget https://bootstrap.pypa.io/get-pip.py && \
     python3.7 get-pip.py && \
     pip install virtualenv virtualenvwrapper && \
-    sed -i 's/which python/which python3.7/g' `which virtualenvwrapper.sh` && \
-    echo -e "\n# virtualenvwrapper" | tee -a /root/.zshrc /root/.bashrc && \
-    echo "export WORKON_HOME=/root/.virtualenvs" | tee -a /root/.zshrc /root/.bashrc && \
-    echo "export VIRTUALENVWRAPPER_VIRTUALENV=`which virtualenv`" | tee -a /root/.zshrc /root/.bashrc && \
-    echo "export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3.7" | tee -a /root/.zshrc /root/.bashrc && \
     echo "source `which virtualenvwrapper.sh`" | tee -a /root/.zshrc /root/.bashrc && \
-    source `which virtualenvwrapper.sh` && \
     rm get-pip.py && \
     rm -rf /var/lib/apt/lists/*
 
@@ -84,19 +78,19 @@ RUN apt update && \
         libglib2.0-dev \
         # Mpi4py required
         libopenmpi-dev \
+        openmpi-bin \
         --no-install-recommends && \
     source `which virtualenvwrapper.sh` && \
     mkvirtualenv py37 && \
-    workon py37 && \
     pip install \
         ipython \
         opencv-python \
         matplotlib \
         pandas \
-        autopep8 \
         mpi4py \
+        # The latest protobuf is not compatible with tensorflow and horovod
+        protobuf==3.20.1 \
         tensorflow-gpu==1.15.5 \
-        tensorflow-probability==0.8.0 \
         # Fix sns.tsplot
         seaborn==0.8.1 \
         # Fix load_weights(xx.h5)
@@ -105,19 +99,28 @@ RUN apt update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install atari
+COPY Roms.rar /root/Roms.rar
 RUN apt update && \
     apt install -y \
         wget \
         unrar \
         unzip \
         --no-install-recommends && \
-    wget http://www.atarimania.com/roms/Roms.rar && \
+    # wget http://www.atarimania.com/roms/Roms.rar && \
     unrar x Roms.rar && \
     source `which virtualenvwrapper.sh` && \
     workon py37 && \
     pip install \
-        gym \
-        ale-py && \
+        # gym<=0.19.0: gym[atari]=atari-py, python -m atari_py.import_roms ROMS/
+        # gym==0.20.0: gym[atari]=ale-py, module 'ale_py.gym' has no attribute 'ALGymEnv'
+        # gym==0.21.0: gym[atari]=ale-py, perfect!
+        # gym>=0.22.0: gym[atari]=ale-py, warnings...
+        # https://github.com/mgbellemare/Arcade-Learning-Environment#openai-gym
+        # https://github.com/openai/gym
+        gym==0.21.0 \
+        # ale-py \
+        'gym[box2d]' \
+        'gym[atari]' && \
     ale-import-roms ROMS/ && \
     deactivate && \
     rm Roms.rar && \
@@ -125,6 +128,7 @@ RUN apt update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install mujoco
+ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/root/.mujoco/mujoco210/bin
 COPY mujoco210-linux-x86_64.tar.gz /root/mujoco210-linux-x86_64.tar.gz
 RUN apt update && \
     apt install -y wget --no-install-recommends && \
@@ -132,13 +136,14 @@ RUN apt update && \
     tar zxf mujoco210-linux-x86_64.tar.gz && \
     mkdir /root/.mujoco && \
     mv mujoco210/ /root/.mujoco/ && \
-    echo -e "\n# mujoco" | tee -a /root/.zshrc /root/.bashrc && \
-    # Fix duplicated values when source ~/zshrc.
-    echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/root/.mujoco/mujoco210/bin" \
-        | tee -a /root/.zshrc /root/.bashrc && \
     source `which virtualenvwrapper.sh` && \
     workon py37 && \
-    pip install mujoco-py && \
+    # gym<=0.16.0: float32 warning...
+    # gym<=0.21,>0.16: perfect!
+    # gym<0.24,>=0.22: v3 warning...
+    # gym>=0.24: pip install 'gym[mujoco]', https://github.com/openai/gym
+    # https://github.com/openai/mujoco-py#install-and-use-mujoco-py
+    pip install 'mujoco-py<2.2,>=2.1' && \
     apt install -y \
         libosmesa6-dev \
         libgl1-mesa-glx \
@@ -147,7 +152,6 @@ RUN apt update && \
         patchelf \
         --no-install-recommends && \
     # ln -s /usr/lib/x86_64-linux-gnu/libGL.so.1 /usr/lib/x86_64-linux-gnu/libGL.so && \
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/root/.mujoco/mujoco210/bin && \
     python -c 'import mujoco_py' && \
     deactivate && \
     rm mujoco210-linux-x86_64.tar.gz && \
@@ -187,14 +191,9 @@ RUN source `which virtualenvwrapper.sh` && \
 
 # Install horovod
 # Make sure that tensorflow has been installed!
-RUN echo -e "\n# horovod" | tee -a /root/.zshrc /root/.bashrc && \
-    echo "export HOROVOD_GPU_OPERATIONS=NCCL" | tee -a /root/.zshrc /root/.bashrc && \
-    echo "export HOROVOD_WITH_TENSORFLOW=1" | tee -a /root/.zshrc /root/.bashrc && \
-    export HOROVOD_GPU_OPERATIONS=NCCL && \
-    export HOROVOD_WITH_TENSORFLOW=1 && \
-    source `which virtualenvwrapper.sh` && \
+RUN source `which virtualenvwrapper.sh` && \
     workon py37 && \
-    pip install horovod && \
+    HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_WITH_TENSORFLOW=1 pip install horovod && \
     deactivate
 
 # copy init.sh
