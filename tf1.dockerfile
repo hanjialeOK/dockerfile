@@ -40,6 +40,9 @@ RUN apt update && \
     cp /root/.oh-my-zsh/templates/zshrc.zsh-template /root/.zshrc && \
     sed -i 's/plugins=(git)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/g' \
         /root/.zshrc && \
+    echo -e "\n# locale" | tee -a /root/.zshrc /root/.bashrc && \
+    echo "export LC_ALL=C.UTF-8" | tee -a /root/.zshrc /root/.bashrc && \
+    echo "export LANG=C.UTF-8" | tee -a /root/.zshrc /root/.bashrc && \
     chsh -s $(which zsh) && \
     rm -rf /var/lib/apt/lists/*
 
@@ -66,6 +69,10 @@ RUN apt update && \
     wget https://bootstrap.pypa.io/get-pip.py && \
     python3.7 get-pip.py && \
     pip install virtualenv virtualenvwrapper && \
+    echo -e "\n# virtualenvwrapper" | tee -a /root/.zshrc /root/.bashrc && \
+    echo "export WORKON_HOME=/root/.virtualenvs" | tee -a /root/.zshrc /root/.bashrc && \
+    echo "export VIRTUALENVWRAPPER_VIRTUALENV=`which virtualenv`" | tee -a /root/.zshrc /root/.bashrc && \
+    echo "export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3.7" | tee -a /root/.zshrc /root/.bashrc && \
     echo "source `which virtualenvwrapper.sh`" | tee -a /root/.zshrc /root/.bashrc && \
     rm get-pip.py && \
     rm -rf /var/lib/apt/lists/*
@@ -191,9 +198,14 @@ RUN source `which virtualenvwrapper.sh` && \
 
 # Install horovod
 # Make sure that tensorflow has been installed!
-RUN source `which virtualenvwrapper.sh` && \
+ENV HOROVOD_GPU_OPERATIONS NCCL
+ENV HOROVOD_WITH_TENSORFLOW 1
+RUN echo -e "\n# horovod" | tee -a /root/.zshrc /root/.bashrc && \
+    echo "export HOROVOD_GPU_OPERATIONS=NCCL" | tee -a /root/.zshrc /root/.bashrc && \
+    echo "export HOROVOD_WITH_TENSORFLOW=1" | tee -a /root/.zshrc /root/.bashrc && \
+    source `which virtualenvwrapper.sh` && \
     workon py37 && \
-    HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_WITH_TENSORFLOW=1 pip install horovod && \
+    pip install horovod && \
     deactivate
 
 # copy init.sh
