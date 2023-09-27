@@ -96,6 +96,9 @@ RUN apt update && \
         --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
+# Fix k8s env
+RUN sed -i '/^source $ZSH.*$/a export $(cat \/proc\/1\/environ |tr '\''\\0'\'' '\''\\n'\'' | xargs)' ~/.zshrc
+
 # copy init.sh
 COPY init.sh /root/init.sh
 
