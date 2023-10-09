@@ -43,11 +43,11 @@ RUN apt update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install go
-# COPY go1.20.2.linux-amd64.tar.gz /root/go1.20.2.linux-amd64.tar.gz
-# COPY v3.21.12 /root/v3.21.12
+COPY go1.20.2.linux-amd64.tar.gz /root/go1.20.2.linux-amd64.tar.gz
+COPY v3.21.12 /root/v3.21.12
 RUN apt update && \
     apt install -y wget && \
-    wget https://dl.google.com/go/go1.20.2.linux-amd64.tar.gz && \
+    # wget https://dl.google.com/go/go1.20.2.linux-amd64.tar.gz && \
     tar -C /usr/local -zxf go1.20.2.linux-amd64.tar.gz && \
     echo -e "\n# go" | tee -a /root/.zshrc /root/.bashrc && \
     export GOROOT=/usr/local/go && \
@@ -60,7 +60,7 @@ RUN apt update && \
     echo "export GOPROXY=https://goproxy.cn" | tee -a /root/.zshrc /root/.bashrc && \
     # install protoc
     apt install -y autoconf automake libtool curl cmake make g++ unzip && \
-    wget https://codeload.github.com/protocolbuffers/protobuf/tar.gz/refs/tags/v3.21.12 && \
+    # wget https://codeload.github.com/protocolbuffers/protobuf/tar.gz/refs/tags/v3.21.12 && \
     tar -zxf v3.21.12 && \
     cd protobuf-3.21.12 && \
     mkdir build && cd build && \
@@ -99,7 +99,10 @@ RUN apt update && \
 # Fix k8s env
 RUN sed -i '/^source $ZSH.*$/a export $(cat \/proc\/1\/environ |tr '\''\\0'\'' '\''\\n'\'' | xargs)' ~/.zshrc
 
-# copy init.sh
+# Copy .kube
+COPY .kube /root/.kube
+
+# Copy init.sh
 COPY init.sh /root/init.sh
 
 ENTRYPOINT ["/bin/zsh", "init.sh"]
