@@ -76,7 +76,18 @@ RUN apt update && \
         --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
-# copy init.sh
+# NPM 反向代理使用
+# https://mirrors.ustc.edu.cn/help/npm.html
+RUN echo "registry=https://npmreg.proxy.ustclug.org/" > ~/.npmrc
+
+# Fix time zone
+RUN apt update && \
+    apt install -y tzdata && \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo 'Asia/Shanghai' > /etc/timezone && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy init.sh
 COPY init.sh /root/init.sh
 
 ENTRYPOINT ["/bin/zsh", "init.sh"]

@@ -99,6 +99,13 @@ RUN apt update && \
 # Fix k8s env
 RUN sed -i '/^source $ZSH.*$/a export $(cat \/proc\/1\/environ |tr '\''\\0'\'' '\''\\n'\'' | xargs)' ~/.zshrc
 
+# Fix time zone
+RUN apt update && \
+    apt install -y tzdata && \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo 'Asia/Shanghai' > /etc/timezone && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy .kube
 COPY .kube /root/.kube
 
