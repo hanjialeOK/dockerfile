@@ -109,6 +109,10 @@ RUN apt update && \
 # Copy .kube
 COPY .kube /root/.kube
 
+# Copy ca.crt
+COPY ca.crt /usr/local/share/ca-certificates/ca.crt
+RUN update-ca-certificates
+
 # Copy init.sh
 COPY init.sh /root/init.sh
 
