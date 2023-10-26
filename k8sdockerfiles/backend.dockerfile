@@ -106,6 +106,11 @@ RUN apt update && \
     echo 'Asia/Shanghai' > /etc/timezone && \
     rm -rf /var/lib/apt/lists/*
 
+# Install mysql
+RUN apt update && \
+    apt install -y mysql-server && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy .kube
 COPY .kube /root/.kube
 
