@@ -1,4 +1,15 @@
-FROM nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
+# 这是 cuda10.0 镜像，主要用于 tensorflow1.x
+# 大小约 6 GB
+# Q: 为什么使用 nvcr.io 的镜像？
+# A: 因为 nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 在 dockerhub 上已不再维护。
+# Q: 为什么需要 rm -rf /var/lib/apt/lists/* ？
+# A: 减少镜像体积，参考 dockerfile 官方文档 https://docs.docker.com/develop/develop-images/instructions/#apt-get。
+# 这条语句要放在每个 RUN 的最后，而不能偷懒只放在最后面的 RUN，因为镜像是按层构建的，只在最后做没有意义。
+# 不过这个文件夹相对较小，apt update 后，/var/lib/apt/lists/ 大概 47M。
+# Q: 为什么 pip 需要 --no-cache-dir ？
+# A: 减少镜像体积，和删除 apt 缓存同理，尤其是针对 tensorflow 和 pytorch 这种比较大的包，很有用。
+
+FROM nvcr.io/nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
 
 MAINTAINER hanjiale@mail.ustc.edu.cn
 
@@ -12,14 +23,20 @@ ENV LANG C.UTF-8
 
 # Update key for nvidia repo
 RUN rm /etc/apt/sources.list.d/cuda.list && \
-    rm /etc/apt/sources.list.d/nvidia-ml.list && \
-    apt-key del 7fa2af80 && \
-    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub && \
-    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/7fa2af80.pub && \
     # Use USTC source
     cp /etc/apt/sources.list /etc/apt/sources.list.hide && \
     sed -i "s@http://.*archive.ubuntu.com@http://mirrors.ustc.edu.cn@g" /etc/apt/sources.list && \
-    sed -i "s@http://.*security.ubuntu.com@http://mirrors.ustc.edu.cn@g" /etc/apt/sources.list
+    sed -i "s@http://.*security.ubuntu.com@http://mirrors.ustc.edu.cn@g" /etc/apt/sources.list && \
+    apt update && \
+    apt upgrade -y && \
+    rm -rf /var/lib/apt/lists/*
+
+# Fix time zone
+RUN apt update && \
+    apt install -y tzdata --no-install-recommends && \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo 'Asia/Shanghai' > /etc/timezone && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install openssh
 COPY .ssh/ /root/.ssh/
@@ -29,18 +46,21 @@ RUN apt update && \
     chmod 600 /root/.ssh/authorized_keys /root/.ssh/id_rsa.pub /root/.ssh/id_rsa && \
     sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/g' \
         /etc/ssh/sshd_config && \
-    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/g' \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/g' \
         /etc/ssh/sshd_config && \
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin prohibit-password/g' \
         /etc/ssh/sshd_config && \
+    echo "root:Ustc1958" | chpasswd && \
     rm -rf /var/lib/apt/lists/*
 EXPOSE 22
-EXPOSE 80
 
 # Install zsh
 COPY .oh-my-zsh/ /root/.oh-my-zsh/
 RUN apt update && \
-    apt install -y zsh --no-install-recommends && \
+    apt install -y \
+        zsh \
+        git \
+        --no-install-recommends && \
     cp /root/.oh-my-zsh/templates/zshrc.zsh-template /root/.zshrc && \
     sed -i 's/plugins=(git)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/g' \
         /root/.zshrc && \
@@ -74,12 +94,11 @@ RUN apt update && \
     apt install -y wget --no-install-recommends && \
     wget https://bootstrap.pypa.io/get-pip.py && \
     python3.7 get-pip.py && \
-    pip config set global.index-url https://mirror.baidu.com/pypi/simple && \
+    pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
     pip install \
-        # importlib-metadata releases v5.0.0 which it remove deprecated endpoint.
-        importlib-metadata==4.13.0 \
         virtualenv \
-        virtualenvwrapper && \
+        virtualenvwrapper \
+        --no-cache-dir && \
     echo -e "\n# virtualenvwrapper" | tee -a /root/.zshrc /root/.bashrc && \
     echo "export WORKON_HOME=/root/.virtualenvs" | tee -a /root/.zshrc /root/.bashrc && \
     echo "export VIRTUALENVWRAPPER_VIRTUALENV=`which virtualenv`" | tee -a /root/.zshrc /root/.bashrc && \
@@ -88,38 +107,6 @@ RUN apt update && \
     rm get-pip.py && \
     source `which virtualenvwrapper.sh` && \
     mkvirtualenv py37 && \
-    pip install \
-        # The latest protobuf is not compatible with tensorflow and horovod
-        protobuf==3.20.1 \
-        # Fix gym.
-        # importlib-metadata releases v5.0.0 which it remove deprecated endpoint.
-        importlib-metadata==4.13.0 && \
-    deactivate && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install tensorflow==1.15
-RUN apt update && \
-    apt install -y \
-        # CV2 required
-        libgl1-mesa-glx \
-        libglib2.0-dev \
-        # Mpi4py required
-        libopenmpi-dev \
-        openmpi-bin \
-        --no-install-recommends && \
-    source `which virtualenvwrapper.sh` && \
-    workon py37 && \
-    pip install \
-        ipython \
-        opencv-python \
-        matplotlib \
-        pandas \
-        mpi4py \
-        tensorflow-gpu==1.15.5 \
-        # Fix sns.tsplot
-        seaborn==0.8.1 \
-        # Fix load_weights(xx.h5)
-        h5py==2.10.0 && \
     deactivate && \
     rm -rf /var/lib/apt/lists/*
 
@@ -136,16 +123,16 @@ RUN apt update && \
     source `which virtualenvwrapper.sh` && \
     workon py37 && \
     pip install \
-        # gym<=0.19.0: gym[atari]=atari-py, python -m atari_py.import_roms ROMS/
-        # gym==0.20.0: gym[atari]=ale-py, module 'ale_py.gym' has no attribute 'ALGymEnv'
-        # gym==0.21.0: gym[atari]=ale-py, perfect!
-        # gym>=0.22.0: gym[atari]=ale-py, warnings...
-        # https://github.com/mgbellemare/Arcade-Learning-Environment#openai-gym
-        # https://github.com/openai/gym
-        gym==0.21.0 \
-        # ale-py \
-        'gym[box2d]' \
-        'gym[atari]' && \
+        # gym 已不再维护，迁移至 gymnasium
+        # 0.29.0+ Requires-Python >=3.8;
+        gymnasium==0.28.1 \
+        # 编译 box2d 需要 swig
+        swig \
+        'gymnasium[atari]' \
+        --no-cache-dir && \
+    pip install \
+        'gymnasium[box2d]' \
+        --no-cache-dir && \
     ale-import-roms ROMS/ && \
     deactivate && \
     rm Roms.rar && \
@@ -153,7 +140,7 @@ RUN apt update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install mujoco
-# ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/root/.mujoco/mujoco210/bin
+ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/root/.mujoco/mujoco210/bin
 COPY mujoco210-linux-x86_64.tar.gz /root/mujoco210-linux-x86_64.tar.gz
 RUN apt update && \
     apt install -y wget --no-install-recommends && \
@@ -174,17 +161,65 @@ RUN apt update && \
     # ln -s /usr/lib/x86_64-linux-gnu/libGL.so.1 /usr/lib/x86_64-linux-gnu/libGL.so && \
     source `which virtualenvwrapper.sh` && \
     workon py37 && \
-    export LD_LIBRARY_PATH=/root/.mujoco/mujoco210/bin && \
-    # gym<=0.16.0: float32 warning...
-    # gym<=0.21,>0.16: perfect!
-    # gym<0.24,>=0.22: v3 warning...
-    # gym>=0.24: pip install 'gym[mujoco]', https://github.com/openai/gym
-    # https://github.com/openai/mujoco-py#install-and-use-mujoco-py
-    pip install 'mujoco-py<2.2,>=2.1' && \
+    pip install \
+        # gym 已不再维护，迁移至 gymnasium
+        # 0.29.0+ Requires-Python >=3.8;
+        gymnasium==0.28.1 \
+        # gymnasium[mujoco] 支持 v4
+        'gymnasium[mujoco]' \
+        --no-cache-dir && \
+    pip install \
+        # mujoco-py 支持 v3，已不再维护
+        'mujoco-py<2.2,>=2.1' \
+        # 为了编译 mujoco_py，需要降级 cython
+        "cython<3" \
+        --no-cache-dir && \
+    # mujoco-py 第一次需要编译
     python -c 'import mujoco_py' && \
     deactivate && \
     rm mujoco210-linux-x86_64.tar.gz && \
     rm -rf /var/lib/apt/lists/*
+
+# Install some tools
+RUN apt update && \
+    apt install -y \
+        # CV2 required
+        libgl1-mesa-glx \
+        libglib2.0-dev \
+        # Mpi4py required
+        libopenmpi-dev \
+        openmpi-bin \
+        --no-install-recommends && \
+    source `which virtualenvwrapper.sh` && \
+    workon py37 && \
+    pip install \
+        ipython \
+        opencv-python \
+        matplotlib \
+        pandas \
+        mpi4py \
+        # Fix sns.tsplot
+        seaborn==0.8.1 \
+        --no-cache-dir && \
+    deactivate && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install tensorflow
+RUN source `which virtualenvwrapper.sh` && \
+    workon py37 && \
+    pip install \
+        tensorflow-gpu==1.15.5 \
+        # The latest protobuf is not compatible with tensorflow and horovod
+        protobuf==3.20.1 \
+        # Fix load_weights(xx.h5)
+        h5py==2.10.0 \
+        --no-cache-dir && \
+    pip install \
+        # tensorflow-gpu 1.15.5 depends on numpy<1.19.0 and >=1.16.0
+        # gymnasium 0.28.1 requires numpy>=1.21.0
+        numpy==1.21.6 \
+        --no-cache-dir && \
+    deactivate
 
 # Install necessary tools
 RUN apt update && \
