@@ -1,3 +1,12 @@
+# 这是 cuda11.8 镜像，主要用于 tensorflow2.x
+# 大小约 16 GB
+# Q: 为什么需要 rm -rf /var/lib/apt/lists/* ？
+# A: 减少镜像体积，参考 dockerfile 官方文档 https://docs.docker.com/develop/develop-images/instructions/#apt-get。
+# 这条语句要放在每个 RUN 的最后，而不能偷懒只放在最后面的 RUN，因为镜像是按层构建的，只在最后做没有意义。
+# 不过这个文件夹相对较小，apt update 后，/var/lib/apt/lists/ 大概 47M。
+# Q: 为什么 pip 需要 --no-cache-dir ？
+# A: 减少镜像体积，和删除 apt 缓存同理，尤其是针对 tensorflow 和 pytorch 这种比较大的包，很有用。
+
 FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
 
 MAINTAINER hanjiale@mail.ustc.edu.cn
@@ -16,13 +25,15 @@ RUN rm /etc/apt/sources.list.d/cuda.list && \
     sed -i "s@http://.*archive.ubuntu.com@http://mirrors.ustc.edu.cn@g" /etc/apt/sources.list && \
     sed -i "s@http://.*security.ubuntu.com@http://mirrors.ustc.edu.cn@g" /etc/apt/sources.list && \
     apt update && \
-    apt upgrade -y
+    apt upgrade -y && \
+    rm -rf /var/lib/apt/lists/*
 
 # Fix time zone
 RUN apt update && \
-    apt install -y tzdata && \
+    apt install -y tzdata --no-install-recommends && \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
-    echo 'Asia/Shanghai' > /etc/timezone
+    echo 'Asia/Shanghai' > /etc/timezone && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install openssh
 COPY .ssh/ /root/.ssh/
@@ -36,7 +47,8 @@ RUN apt update && \
         /etc/ssh/sshd_config && \
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin prohibit-password/g' \
         /etc/ssh/sshd_config && \
-    echo "root:Ustc1958" | chpasswd
+    echo "root:Ustc1958" | chpasswd && \
+    rm -rf /var/lib/apt/lists/*
 EXPOSE 22
 
 # Install zsh
@@ -52,7 +64,8 @@ RUN apt update && \
     echo -e "\n# locale" | tee -a /root/.zshrc /root/.bashrc && \
     echo "export LC_ALL=C.UTF-8" | tee -a /root/.zshrc /root/.bashrc && \
     echo "export LANG=C.UTF-8" | tee -a /root/.zshrc /root/.bashrc && \
-    chsh -s $(which zsh)
+    chsh -s $(which zsh) && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install python3.8
 RUN apt update && \
@@ -67,7 +80,8 @@ RUN apt update && \
         # Interactive when configuring tzdata, default time zone: 'Etc/UTC'
         # Fix for using color in matplotlib
         python3.8-tk \
-        --no-install-recommends
+        --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install virtualenv & virtualenvwrapper
 ENV WORKON_HOME /root/.virtualenvs
@@ -80,7 +94,8 @@ RUN apt update && \
     pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
     pip install \
         virtualenv \
-        virtualenvwrapper && \
+        virtualenvwrapper \
+        --no-cache-dir && \
     echo -e "\n# virtualenvwrapper" | tee -a /root/.zshrc /root/.bashrc && \
     echo "export WORKON_HOME=/root/.virtualenvs" | tee -a /root/.zshrc /root/.bashrc && \
     echo "export VIRTUALENVWRAPPER_VIRTUALENV=`which virtualenv`" | tee -a /root/.zshrc /root/.bashrc && \
@@ -89,7 +104,8 @@ RUN apt update && \
     rm get-pip.py && \
     source `which virtualenvwrapper.sh` && \
     mkvirtualenv py38 && \
-    deactivate
+    deactivate && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install atari
 COPY Roms.rar /root/Roms.rar
@@ -108,12 +124,16 @@ RUN apt update && \
         gymnasium==0.29.1 \
         # 编译 box2d 需要 swig
         swig \
-        'gymnasium[atari]' && \
-    pip install 'gymnasium[box2d]' && \
+        'gymnasium[atari]' \
+        --no-cache-dir && \
+    pip install \
+        'gymnasium[box2d]' \
+        --no-cache-dir && \
     ale-import-roms ROMS/ && \
     deactivate && \
     rm Roms.rar && \
-    rm -rf ROMS/ 'HC ROMS'
+    rm -rf ROMS/ 'HC ROMS' && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install mujoco
 ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/root/.mujoco/mujoco210/bin
@@ -141,14 +161,19 @@ RUN apt update && \
         # gym 已不再维护，迁移至 gymnasium
         gymnasium==0.29.1 \
         # gymnasium[mujoco] 支持 v4
-        'gymnasium[mujoco]' && \
-    # mujoco-py 支持 v3
-    pip install 'mujoco-py<2.2,>=2.1' && \
-    # 为了编译 mujoco_py，需要降级 cython
-    pip install "cython<3" && \
+        'gymnasium[mujoco]' \
+        --no-cache-dir && \
+    pip install \
+        # mujoco-py 支持 v3，已不再维护
+        'mujoco-py<2.2,>=2.1' \
+        # 为了编译 mujoco_py，需要降级 cython
+        "cython<3" \
+        --no-cache-dir && \
+    # mujoco-py 第一次需要编译
     python -c 'import mujoco_py' && \
     deactivate && \
-    rm mujoco210-linux-x86_64.tar.gz
+    rm mujoco210-linux-x86_64.tar.gz && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install some tools
 RUN apt update && \
@@ -169,14 +194,17 @@ RUN apt update && \
         pandas \
         mpi4py \
         # Fix sns.tsplot
-        seaborn==0.8.1 && \
-    deactivate
+        seaborn==0.8.1 \
+        --no-cache-dir && \
+    deactivate && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install tensorflow
 RUN source `which virtualenvwrapper.sh` && \
     workon py38 && \
     pip install \
-        tensorflow==2.8.4 && \
+        tensorflow==2.8.4 \
+        --no-cache-dir && \
     deactivate
 
 # Install torch
@@ -186,7 +214,8 @@ RUN source `which virtualenvwrapper.sh` && \
         torch==1.13.1+cu117 \
         torchvision==0.14.1+cu117 \
         torchaudio==0.13.1 \
-        --extra-index-url https://download.pytorch.org/whl/cu117 && \
+        --extra-index-url https://download.pytorch.org/whl/cu117 \
+        --no-cache-dir && \
     deactivate
 
 # Install necessary tools
@@ -207,9 +236,6 @@ RUN apt update && \
         iputils-ping \
         # fuser -v /dev/nvidia0
         psmisc \
-        --no-install-recommends
+        --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy init.sh
-COPY init.sh /root/init.sh
-
-ENTRYPOINT ["/bin/zsh", "init.sh"]
