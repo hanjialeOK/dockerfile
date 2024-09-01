@@ -1,4 +1,7 @@
-.oh-my-zsh/
-.ssh/
+.oh-my-zsh
+.ssh
 torch.dockerfile
 mujoco210-*
+zsh-*
+Roms.rar
+miner*
